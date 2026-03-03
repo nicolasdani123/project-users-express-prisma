@@ -1,69 +1,59 @@
 import { Prisma } from "@prisma/client";
 import selectedResponse from "../../../core/helper/selectedResponse.js";
 import prisma from "../../../core/prisma/prismaClient.js";
-import { ResponseUserOutput } from "../schema/user.response.schema.js";
 import { IdUserInput } from "../schema/user.create.schema.js";
+import { EmailUserInput } from "../schema/user.fields.schema.js";
+import { ResponseUserOutput } from "../schema/user.response.schema.js";
+import { UpdateUserInput } from "../schema/user.update.schema.js";
 
 
-class UserRepository {
+
+ export class UserRepository {
 
 
-  async findAll(): Promise<ResponseUserOutput[]> {
+    async findAll():Promise<ResponseUserOutput[]>{
 
-    return await prisma.user.findMany({
-      where: { is_active: true },
-      select: selectedResponse,
-      orderBy: { created_at: "desc" }
-    })
-  }
+        return prisma.user.findMany({
+            where: {is_active:true},
+            orderBy:{
+                created_at:"desc"
+            },
+            select:selectedResponse
+        })
+    }
 
-  async findById(id: IdUserInput): Promise<ResponseUserOutput | null> {
-    return await prisma.user.findUnique({
-      where: { id, is_active: true },
-      select: selectedResponse
-    })
-  }
+    async findById(id:IdUserInput):Promise<ResponseUserOutput | null>{
 
-  async update(id: IdUserInput, data: Prisma.UserUpdateInput): Promise<ResponseUserOutput> {
-    return await prisma.user.update({
-      where: { id, is_active: true },
-      data: data,
-      select: selectedResponse
-    })
-  }
+        return prisma.user.findFirst({
+            where:{id,is_active:true},
+            select:selectedResponse
+        })
+    }
 
-  async create(data: Prisma.UserCreateInput): Promise<ResponseUserOutput> {
+    async findByEmail(email:EmailUserInput):Promise<ResponseUserOutput | null>{
 
-    return await prisma.user.create({
-      data: data,
-      select: selectedResponse
-    })
-  }
+        return prisma.user.findFirst({
+            where:{email,is_active:true},
+            select:selectedResponse
+        })
+    }
 
-  async findByEmail(email: string): Promise<{ id: string } | null> {
-    return await prisma.user.findUnique({
-      where: { email, is_active: true },
-      select: { id: true }
-    })
-  }
+    async create(data:Prisma.UserCreateInput):Promise<ResponseUserOutput>{
+        return await prisma.user.create({
+            data:data,
+            select:selectedResponse
+        })
+    }
 
-  async softDelete(id: IdUserInput): Promise<ResponseUserOutput> {
-
-    return await prisma.user.update({
-      where: { id },
-      data: {
-        is_active: false
-      },
-      select: selectedResponse
-    })
-  }
-
-  async delete(id: IdUserInput): Promise<void> {
-    await prisma.user.delete({
-      where: { id, is_active: true },
-    })
-  }
-
+    async update(id:IdUserInput,data:Prisma.UserUpdateInput):Promise<ResponseUserOutput>{
+            
+        return await prisma.user.update({
+            where:{id},
+           data,
+            select:selectedResponse
+        })
+       
+    }
+    
 }
 
-export default UserRepository

@@ -16,3 +16,6 @@ export const passwordSchema = z.string().min(6, "Senha deve ter no mínimo 6 car
 export const roleSchema = z.preprocess(val => typeof val === "string" ? val.toUpperCase() : val, z.nativeEnum(Role));
 export const isActiveSchema = z.boolean();
 export const dateSchema = z.coerce.date();
+
+
+ export type EmailUserInput = z.infer<typeof emailSchema>
