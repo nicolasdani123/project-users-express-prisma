@@ -1,16 +1,6 @@
-interface SuccessResponse<T> {
-  success: true;
-  message: string;
-  status: number;
-  data: T;
-  timestamp: string;
-}
+import { SuccessResponse } from "../../types/response.types.js";
 
-function baseResponseSuccess<T>(
-  message: string,
-  data: T,
-  status: number = 200,
-): SuccessResponse<T> {
+const baseResponseSuccess = <T>(message: string, data: T, status: number = 200): SuccessResponse<T> => {
   return {
     success: true,
     message,
@@ -18,6 +8,6 @@ function baseResponseSuccess<T>(
     data,
     timestamp: new Date().toISOString(),
   };
-}
+};
 
-export default baseResponseSuccess;
+export default baseResponseSuccess

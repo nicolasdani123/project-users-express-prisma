@@ -18,4 +18,6 @@ router.get("/email/:email",asyncHandler(controller.findByEmail.bind(controller))
 router.get("/:id",asyncHandler(controller.findById.bind(controller)))
 router.post("",asyncHandler(controller.create.bind(controller)))
 router.patch("/:id",asyncHandler(controller.update.bind(controller)))
+router.patch("/:id/deactivate",asyncHandler(controller.deactivate.bind(controller)))
+router.delete("/:id",asyncHandler(controller.delete.bind(controller)))
 export default router

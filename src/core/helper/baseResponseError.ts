@@ -1,15 +1,4 @@
-interface ValidationError {
-  field: string;
-  message: string;
-}
-
-interface ErrorResponse {
-  success: false;
-  message: string;
-  status: number;
-  errors: ValidationError[];
-  timestamp: string;
-}
+import { ErrorResponse, ValidationError } from "../../types/response.types.js";
 
 function baseResponseError(
   message: string = "Erro no servidor",

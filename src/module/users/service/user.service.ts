@@ -1,17 +1,19 @@
 import AppError from "../../../core/error/appError.js";
 import { UserRepository } from "../repository/user.repository.js";
-import { CreateUserInput, IdUserInput } from "../schema/user.create.schema.js";
-import { ResponseUserOutput, responseUserSchema } from "../schema/user.response.schema.js";
-import prisma from "../../../core/prisma/prismaClient.js";
-import selectedResponse from "../../../core/helper/selectedResponse.js";
-import { EmailUserInput } from "../schema/user.fields.schema.js";
-import { hashPassword } from "../../../core/helper/password_hash.js";
+import { CreateUserInput, IdUserInput, LoginInput, ResponseUserOutput, ListUsersResult, UpdateRoleInput, UpdateUserInput, EmailUserInput } from "../../../types/user.types.js";
+import { responseUserSchema } from "../schema/user.response.schema.js";
+// prisma and selectedResponse are accessed through the repository
+import { hashPassword, comparePassword } from "../../../core/helper/password_hash.js";
 import { Prisma } from "@prisma/client";
-import { UpdateUserInput } from "../schema/user.update.schema.js";
 import buildUpdateData from "../../../core/helper/buildUpdateData.js";
+import { generateToken } from "../../../core/helper/tokenJwt.js";
+
+// standardized messages keep strings in one place
+const MSG_USER_NOT_FOUND = "Usuário não encontrado";
+const MSG_EMAIL_NOT_FOUND = "Email não encontrado";
+const MSG_INVALID_CREDENTIALS = "Email ou senha inválidos";
 
 export class UserService {
-
   constructor(private readonly repository: UserRepository) { }
 
 
@@ -22,41 +24,18 @@ export class UserService {
     return responseUserSchema.array().parse(users)
   }
 
-  async listUsers(page: number, limit: number) {
-
-    const safePage = page < 1 ? 1 : page
-    const safeLimit = limit < 1 ? 10 : limit > 50 ? 50 : limit
-
-    const skip = (safePage - 1) * safeLimit
-    const where = { is_active: true }
-
-    const [users, total] = await Promise.all([
-      prisma.user.findMany({
-        where,
-        skip,
-        take: safeLimit,
-        orderBy: { created_at: "desc" },
-        select: selectedResponse
-      }),
-      prisma.user.count({ where })
-    ])
-
-    return {
-      data: users,
-      meta: {
-        total,
-        page: safePage,
-        perPage: safeLimit,
-        totalPages: Math.ceil(total / safeLimit)
-      }
-    }
+  async listUsers(page: number, limit: number): Promise<ListUsersResult> {
+    // pagination logic has been pushed to the repository; service just delegates
+    const result = await this.repository.list(page, limit);
+    // the repository already returns typed data so we can pass it through
+    return result;
   }
 
 
   async findById(id: IdUserInput): Promise<ResponseUserOutput> {
 
     const user = await this.repository.findById(id)
-    if (!user) throw new AppError("Usuario não encontrado", 404)
+    if (!user) throw new AppError(MSG_USER_NOT_FOUND, 404);
 
     return responseUserSchema.parse(user)
   }
@@ -65,7 +44,7 @@ export class UserService {
 
     const user = await this.repository.findByEmail(email)
     if (!user) {
-      throw new AppError("Email não encontrado", 404)
+      throw new AppError(MSG_EMAIL_NOT_FOUND, 404);
     }
     return responseUserSchema.parse(user)
   }
@@ -87,17 +66,61 @@ export class UserService {
 
   }
 
-  async update(id:IdUserInput,data:UpdateUserInput):Promise<ResponseUserOutput>{
+  async update(id: IdUserInput, data: UpdateUserInput): Promise<ResponseUserOutput> {
 
-      const saveToHash = await buildUpdateData(data)
+    const saveToHash = await buildUpdateData(data)
 
-      await this.findById(id)
+    await this.findById(id)
 
-      const user  = await this.repository.update(id,saveToHash)
+    const user = await this.repository.update(id, saveToHash)
 
-      return responseUserSchema.parse(user)
+    return responseUserSchema.parse(user)
 
-      
+
   }
 
+  async role(id:IdUserInput, data:UpdateRoleInput):Promise<void>{
+
+     await this.findById(id)
+
+     await this.repository.role(id, data)
+     
+  }
+
+  async delete(id: IdUserInput): Promise<void> {
+    await this.findById(id);
+    await this.repository.deleteUser(id);
+  }
+
+  async softDelete(id: IdUserInput): Promise<void> {
+    await this.findById(id);
+    await this.repository.softDeleteUser(id);
+  }
+
+  async login(data: LoginInput): Promise<{ token: string; user: ResponseUserOutput }> {
+    const userAuth = await this.repository.findByEmailForAuth(data.email);
+
+    if (!userAuth) {
+      throw new AppError(MSG_INVALID_CREDENTIALS, 401);
+    }
+
+    const passwordMatch = await comparePassword(data.password, userAuth.password_hash);
+
+    if (!passwordMatch) {
+      throw new AppError(MSG_INVALID_CREDENTIALS, 401);
+    }
+
+    const token = generateToken({
+      sub: userAuth.id,
+      email: userAuth.email,
+      role: userAuth.role,
+    });
+
+    // remove password_hash before returning; other response fields are already
+    // present thanks to the expanded select in findByEmailForAuth
+    const { password_hash, ...user } = userAuth;
+
+    return { token, user: responseUserSchema.parse(user) };
+  }
 }
+
